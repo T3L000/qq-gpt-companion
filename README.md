@@ -53,3 +53,11 @@ Tests are synthetic (temporary local DBs and loopback SSE fixtures); they do **n
 Do not upload real QQ group chats, token screenshots, account cookies or local provider profiles in issues or PRs. See [SECURITY.md](SECURITY.md).
 
 Licensed under [MIT](LICENSE). Forks and commercial reuse are allowed under the license terms. Copyright/attribution obligations remain. Contributions are welcome but not guaranteed a response.
+
+## Behavior balance sheet and social behavior roadmap
+
+The existing local dashboard at http://127.0.0.1:18761/ now contains a live **16-knob behavior balance sheet**, with numeric inputs, sliders, three safety-bounded presets (quiet / normal / active) and explicit Save / Restore buttons. These tune real social decisions: ambient sampling, follow-up probability, quiet hours, consecutive message coalescing, stale ambient replies, context size and Codex CLI quotas. Changes use a versioned, Token-protected local endpoint and cannot enable sending, grant a model entitlement, change groups or expose credentials.
+
+The official Codex CLI opt-in worker is available as companion/codex_cli_worker.py, using the machine's own supported ChatGPT sign-in with ephemeral read-only executions. It is not a credential-to-API conversion proxy. Automatic group delivery remains independently gated by AstrBot and the local outbound allowlist. Set QQ_COMPANION_TEST_GROUP to your own *approved* test group in the process environment; none is embedded in the source.
+
+See docs/HUMANIZATION_ACCEPTANCE.md for a realistic feature-by-feature audit against the Tulpa/MaiBot-inspired goals. Natural-language social quality, semantic topic-shift planning, per-group persona customization and multi-bubble native QQ quoting still require more development and consented real-world evaluation.

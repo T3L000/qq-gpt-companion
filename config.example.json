@@ -13,6 +13,7 @@
     "quiet_hours": [0, 7],
     "tail_seconds": 2,
     "max_collection_seconds": 8,
+    "max_ambient_reply_age_seconds": 90,
     "max_prompt_messages": 36,
     "max_reply_characters": 650
   },
@@ -24,6 +25,13 @@
     "mode": "manual_web",
     "conversation_url": "",
     "auto_web_control": false,
+    "codex_cli_enabled": false,
+    "codex_cli_model": "gpt-6-luna",
+    "codex_cli_activated_at": "",
+    "codex_cli_timeout_seconds": 90,
+    "codex_cli_hourly_limit": 4,
+    "codex_cli_daily_limit": 12,
+    "codex_cli_min_interval_seconds": 180,
     "siwc_enabled": false,
     "model": "",
     "siwc_activated_at": ""

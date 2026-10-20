@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import core, agent_queue
+from . import core, agent_queue, tuning
 
 LOG = logging.getLogger("companion")
 
@@ -64,6 +64,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"requests": core.pending_requests()})
             elif path == "/api/agent/status":
                 self._json(200, agent_queue.queue_status())
+            elif path == "/api/tuning":
+                self._json(200, tuning.snapshot())
             else:
                 self._json(404, {"error": "not_found"})
         except Exception as exc:
@@ -100,6 +102,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/agent/trigger-unknown":
                 agent_queue.mark_trigger_unknown(str(body.get("event_id", "")),"wake_outcome_unknown")
                 result = {"ok": True}
+            elif path == "/api/tuning":
+                result = tuning.update(body.get("values"), body.get("expected_version"))
             else:
                 self._json(404, {"error": "not_found"})
                 return

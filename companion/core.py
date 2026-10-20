@@ -109,6 +109,14 @@ def init(root: Path = ROOT) -> None:
             first_token_ms INTEGER, duration_ms INTEGER,
             error_type TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS codex_cli_attempts (
+            request_id TEXT PRIMARY KEY, group_id TEXT NOT NULL,
+            state TEXT NOT NULL, started_at TEXT NOT NULL,
+            duration_ms INTEGER, error_type TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_codex_cli_attempts_group_time
+            ON codex_cli_attempts(group_id, started_at);
         CREATE TABLE IF NOT EXISTS agent_jobs (
             request_id TEXT PRIMARY KEY,
             event_id TEXT NOT NULL UNIQUE,
@@ -150,6 +158,11 @@ def init(root: Path = ROOT) -> None:
         )
         db.execute(
             "UPDATE siwc_attempts SET state='model_uncertain',updated_at=? "
+            "WHERE state='attempted' AND request_id IN "
+            "(SELECT id FROM requests WHERE status='model_uncertain')", (now(),),
+        )
+        db.execute(
+            "UPDATE codex_cli_attempts SET state='model_uncertain',updated_at=? "
             "WHERE state='attempted' AND request_id IN "
             "(SELECT id FROM requests WHERE status='model_uncertain')", (now(),),
         )
@@ -528,12 +541,36 @@ def claim_outbound(root: Path = ROOT) -> dict[str, Any] | None:
         return None
     with _DB_LOCK, open_db(root) as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute(
-            "SELECT id,origin,reply_text,group_id FROM requests WHERE status='ready' "
-            "AND group_id IN (" + ",".join("?" for _ in groups) + ") "
-            "AND group_id NOT IN (SELECT group_id FROM handoffs WHERE state='prepared') "
-            "ORDER BY created_at LIMIT 1", groups,
-        ).fetchone()
+        # Only auto-generated, non-directed ambient replies may expire. Direct
+        # questions and human-approved replies remain in their original queue.
+        limit=max(30,min(300,int(cfg["engagement"].get("max_ambient_reply_age_seconds",90))))
+        candidates=db.execute(
+            "SELECT r.id,r.origin,r.reply_text,r.group_id,r.created_at,"
+            "m.directed,m.received_at, "
+            "EXISTS(SELECT 1 FROM codex_cli_attempts x WHERE x.request_id=r.id) "
+            "OR EXISTS(SELECT 1 FROM siwc_attempts x WHERE x.request_id=r.id) "
+            "OR EXISTS(SELECT 1 FROM agent_jobs x WHERE x.request_id=r.id) AS generated "
+            "FROM requests r JOIN messages m ON m.id=r.source_message_id "
+            "WHERE r.status='ready' "
+            "AND r.group_id IN (" + ",".join("?" for _ in groups) + ") "
+            "AND r.group_id NOT IN (SELECT group_id FROM handoffs WHERE state='prepared') "
+            "ORDER BY r.created_at LIMIT 50", groups,
+        ).fetchall()
+        row=None
+        for item in candidates:
+            age=(dt.datetime.now(UTC)-dt.datetime.fromisoformat(item["received_at"])).total_seconds()
+            if item["generated"] and not item["directed"] and age>limit:
+                db.execute("UPDATE requests SET status='silenced',updated_at=? "
+                           "WHERE id=? AND status='ready'",(now(),item["id"]))
+                db.execute(
+                    "INSERT INTO request_timings(request_id,error_type,updated_at) VALUES(?,?,?) "
+                    "ON CONFLICT(request_id) DO UPDATE SET "
+                    "error_type=excluded.error_type,updated_at=excluded.updated_at",
+                    (item["id"],"ExpiredAmbientReply",now()),
+                )
+                continue
+            row=item
+            break
         if not row:
             db.commit()
             return None

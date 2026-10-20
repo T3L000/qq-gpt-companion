@@ -1,0 +1,30 @@
+{
+  "local_bridge_url": {
+    "type": "string",
+    "description": "本机服务地址",
+    "default": "http://127.0.0.1:18761"
+  },
+  "local_token": {
+    "type": "string",
+    "description": "CLI local-token 命令输出，切勿公开",
+    "default": ""
+  },
+  "allowed_group_ids": {
+    "type": "list",
+    "description": "已知情群的白名单群号",
+    "default": [],
+    "items": {
+      "type": "string"
+    }
+  },
+  "allow_outbound_sends": {
+    "type": "bool",
+    "description": "是否允许发送人工确认的回复到 QQ；默认关闭",
+    "default": false
+  },
+  "allow_message_intake": {
+    "type": "bool",
+    "description": "是否把白名单群消息送入本地服务保存上下文；需先告知群成员，默认关闭",
+    "default": false
+  }
+}

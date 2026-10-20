@@ -1,0 +1,38 @@
+{
+  "enabled": false,
+  "allowed_groups": [],
+  "outbound_groups": [],
+  "bot_name": "GPT群友",
+  "engagement": {
+    "direct_reply": true,
+    "ambient_probability": 0.05,
+    "followup_probability": 0.42,
+    "followup_window_seconds": 180,
+    "ambient_cooldown_seconds": 180,
+    "ambient_max_per_hour": 4,
+    "quiet_hours": [0, 7],
+    "tail_seconds": 2,
+    "max_collection_seconds": 8,
+    "max_prompt_messages": 36,
+    "max_reply_characters": 650
+  },
+  "memory": {
+    "message_retention_days": 7,
+    "default_member_memory_opt_in": false
+  },
+  "provider": {
+    "mode": "manual_web",
+    "conversation_url": "",
+    "auto_web_control": false,
+    "siwc_enabled": false,
+    "model": "",
+    "siwc_activated_at": ""
+  },
+  "multica": {
+    "enabled": false,
+    "test_group": "",
+    "autopilot_id": "",
+    "event_max_age_seconds": 120,
+    "queue_max_age_seconds": 900
+  }
+}

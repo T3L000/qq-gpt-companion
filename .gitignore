@@ -1,0 +1,25 @@
+# Runtime/private state — never commit credentials, sessions or chat data
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+config.json
+config.json.tmp
+data/
+backups/
+services/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+*.session
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store
+.idea/
+.vscode/
+node_modules/

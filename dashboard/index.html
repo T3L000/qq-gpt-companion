@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPT 群友 · 本地控制台</title>
+<style>
+:root{font-family:system-ui,"Microsoft YaHei",sans-serif;color:#252525;background:#f6f3ef}
+body{max-width:1050px;margin:35px auto;padding:0 20px}
+header{display:flex;justify-content:space-between;gap:16px;align-items:center;border-bottom:2px solid #242424;padding-bottom:14px}
+h1{font-size:28px;letter-spacing:-.04em;margin:0}small{color:#777}
+h2{font-size:16px} .top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:20px 0}
+input,textarea,button{font:inherit;border:1px solid #999;border-radius:5px;padding:9px;color:inherit;background:white}
+input{min-width:230px}button{cursor:pointer}button.primary{background:#8c332a;border-color:#8c332a;color:white}
+#status{background:#fff;border:1px solid #ddd;padding:12px 16px;border-radius:6px;line-height:1.6}
+.job{background:#fff;border:1px solid #d9d7d3;border-radius:7px;padding:16px;margin:12px 0}
+.job label{display:block;margin:11px 0 6px;font-weight:600}
+pre{white-space:pre-wrap;word-wrap:break-word;max-height:340px;overflow:auto;font-size:12px;background:#f5f5f5;padding:12px;border-radius:4px}
+textarea{width:100%;box-sizing:border-box;min-height:85px}
+.grid{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.muted{color:#777;font-size:13px}.danger{color:#90382e}
+</style></head>
+<body>
+<header><div><h1>GPT 群友</h1><small>QQ · 人格 · 本地记忆 · 网页会话交接</small></div><small>LOCAL / v0.1</small></header>
+<div class="top"><input id="token" type="password" placeholder="输入本地桥接 Token" autocomplete="off"><button class="primary" onclick="connect()">连接控制台</button><button onclick="refresh()">刷新</button></div>
+<div id="status">尚未连接。请从本机 CLI 获取 Token 后输入；不要分享给他人。</div>
+<h2>待人工处理的网页请求</h2>
+<p class="muted">网页模式：复制下面的提示词，手动发送到你选定的 ChatGPT 网页对话；将网页回复粘贴回来。不会自动抓取网页登录态或输出。</p>
+<div id="jobs"></div>
+<script>
+let key = sessionStorage.getItem('qq_gpt_token') || '';
+document.getElementById('token').value=key;
+function node(tag,text,klass){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(klass)n.className=klass;return n}
+async function req(path,data){
+ const opt={headers:{'X-Companion-Token':key}};
+ if(data!==undefined){opt.method='POST';opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(data);}
+ const resp=await fetch(path,opt);const x=await resp.json();if(!resp.ok)throw Error(x.error||'HTTP '+resp.status);return x;
+}
+function connect(){key=document.getElementById('token').value.trim();sessionStorage.setItem('qq_gpt_token',key);refresh();}
+async function copy(text){try{await navigator.clipboard.writeText(text);alert('已复制，请粘贴到指定 ChatGPT 网页会话')}catch(e){alert('剪贴板不可用，请手动选择文本复制')}}
+async function silence(id){
+ if(!confirm('确认本轮不发言吗？'))return;
+ try{await req('/api/silence',{request_id:id});await refresh()}catch(e){alert(e.message)}
+}
+async function reply(id,textarea){
+ const value=textarea.value.trim();if(!value)return alert('请先粘贴网页回复');
+ try{await req('/api/reply',{request_id:id,reply:value});await refresh()}catch(e){alert(e.message)}
+}
+async function refresh(){
+ if(!key)return;
+ try{
+ const [status,jobs]=await Promise.all([req('/api/status'),req('/api/requests')]);
+ document.getElementById('status').textContent='状态：'+(status.enabled?'已启用':'未启用')+'  |  群：'+(status.allowed_groups.join(', ')||'未配置')+'  |  待处理：'+status.queued+'  |  待发送：'+status.ready+'  |  发送不确定：'+status.uncertain+'  |  会话交接中：'+(status.handoff_pending?'是':'否')+'  |  各群会话：'+(Object.entries(status.active_sessions||{}).map(([id,session])=>id+':'+session.conversation_url).join('；')||'未绑定');
+ const t=status.last_timing_ms; if(t)document.getElementById('status').textContent+='  |  最近模型首字/完成：'+(t.first_token_ms??'未测')+'/'+(t.model_total_ms??'未测')+' ms  |  QQ全程：'+(t.qq_total_ms??'未测')+' ms';
+ document.getElementById('status').textContent+='  |  生成中：'+(status.generating||0)+'  |  模型不确定：'+(status.model_uncertain||0);
+ const out=document.getElementById('jobs');out.replaceChildren();
+ if(jobs.requests.length===0){out.append(node('p','当前没有待处理任务。','muted'))}
+ for(const j of jobs.requests){
+ const card=node('div',undefined,'job');card.append(node('strong','群 '+j.group_id+' · '+j.status+' · '+j.created_at));
+ const active=status.active_sessions?.[j.group_id];
+ if(active){const link=node('a','打开本群的 ChatGPT 网页会话');link.href=active.conversation_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}
+ else{card.append(node('p','本群尚未绑定 ChatGPT 网页会话，请先在 CLI 中执行 bind-session。','danger'))}
+ const pre=node('pre',j.prompt);card.append(pre);const actions=node('div',undefined,'grid');
+ const c=node('button','复制提示词');c.onclick=()=>copy(j.prompt);actions.append(c);card.append(actions);
+ if(j.status==='pending'||j.status==='model_uncertain'){
+  if(j.status==='model_uncertain')card.append(node('p','模型超时或断线，未自动重试；确认后可人工提供回复。','danger'));
+ const label=node('label','网页回复');const ta=node('textarea');ta.placeholder='将 ChatGPT 网页的回复粘贴到这里';
+ const btn=node('button','提交回复到 QQ 待发送队列','primary');btn.onclick=()=>reply(j.id,ta);
+ const skip=node('button','这一轮保持沉默');skip.onclick=()=>silence(j.id);
+ card.append(label,ta,btn,skip);
+ }else if(j.status==='generating'){card.append(node('p','模型生成中，请勿并行提交。','muted'))}
+  else{card.append(node('p','QQ发送结果不确定：请核对群历史，不要重复发送。','danger'))}
+ out.append(card);
+ }
+ }catch(e){document.getElementById('status').textContent='连接失败：'+e.message}
+}
+if(key)refresh();
+setInterval(()=>{if(key)refresh()},3000);
+</script>
+</body></html>

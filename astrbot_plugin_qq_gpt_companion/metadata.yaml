@@ -1,0 +1,4 @@
+name: qq_gpt_companion
+desc: "GPT QQ companion: local manual web conversation bridge with persona and durable memory"
+author: Local
+version: v0.1.0
